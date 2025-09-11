@@ -3,53 +3,28 @@ from sklearn.metrics import mutual_info_score
 from scipy.spatial.distance import jaccard
 import warnings
 
-def discretize_signal(signal, bins=10):
-    """
-    将连续信号离散化
-    
-    Parameters:
-    signal (np.array): 输入信号
-    bins (int): 离散化的箱数
-    
-    Returns:
-    np.array: 离散化后的信号
-    """
-    # 处理常数信号的情况
-    if np.std(signal) == 0:
-        return np.zeros_like(signal, dtype=int)
-    
-    # 使用等宽分箱进行离散化
-    discretized = np.digitize(signal, np.linspace(signal.min(), signal.max(), bins))
-    return discretized
-
-def compute_mutual_information(x, y, bins=10):
+def compute_mutual_information(x, y):
     """
     计算两个变量之间的互信息
     
     Parameters:
     x (np.array): 第一个变量
     y (np.array): 第二个变量
-    bins (int): 离散化的箱数
     
     Returns:
     float: 互信息值
     """
-    # 离散化信号
-    x_disc = discretize_signal(x, bins)
-    y_disc = discretize_signal(y, bins)
-    
-    # 计算互信息
-    mi = mutual_info_score(x_disc, y_disc)
+    # 直接使用原始数据计算互信息
+    mi = mutual_info_score(x, y)
     return mi
 
-def calculate_mi_matrix(data, voltage_index=None, bins=10):
+def calculate_mi_matrix(data, voltage_index=None):
     """
     计算T*D二维信号中各变量与电压变量的互信息矩阵
     
     Parameters:
     data (np.array): T*D的二维信号，T为时间步，D为变量维度
     voltage_index (int): 电压变量在D维度中的索引，如果为None则默认为最后一个变量
-    bins (int): 离散化的箱数
     
     Returns:
     np.array: 1*D的互信息向量，表示各变量与电压变量的互信息
@@ -85,7 +60,7 @@ def calculate_mi_matrix(data, voltage_index=None, bins=10):
         if i == voltage_index:
             mi_vector[i] = 0  # 电压与自身的互信息为0
         else:
-            mi_vector[i] = compute_mutual_information(data[:, i], voltage_signal, bins)
+            mi_vector[i] = compute_mutual_information(data[:, i], voltage_signal)
     
     # 创建结果字典
     results = {
@@ -97,7 +72,7 @@ def calculate_mi_matrix(data, voltage_index=None, bins=10):
     
     return mi_vector, results
 
-def find_top_correlated_features(data, voltage_index=None, top_k=5, bins=10):
+def find_top_correlated_features(data, voltage_index=None, top_k=5):
     """
     找到与电压变量互信息最高的前K个特征
     
@@ -105,13 +80,12 @@ def find_top_correlated_features(data, voltage_index=None, top_k=5, bins=10):
     data (np.array): T*D的二维信号
     voltage_index (int): 电压变量索引
     top_k (int): 返回前K个相关特征
-    bins (int): 离散化的箱数
     
     Returns:
     list: 包含(特征索引, 互信息值)的元组列表
     dict: 详细结果信息
     """
-    mi_vector, results = calculate_mi_matrix(data, voltage_index, bins)
+    mi_vector, results = calculate_mi_matrix(data, voltage_index)
     
     # 获取除电压变量外的所有互信息值
     mi_without_voltage = np.delete(mi_vector, results['voltage_index'])
@@ -129,16 +103,20 @@ def find_top_correlated_features(data, voltage_index=None, top_k=5, bins=10):
 
 # 示例用法
 if __name__ == "__main__":
-    # 生成示例数据 (100个时间步, 5个变量)
+    # 生成示例离散数据 (100个时间步, 5个变量)
     np.random.seed(42)
     T, D = 100, 5
-    data = np.random.randn(T, D)
+    # 生成离散数据，每个变量的取值范围为0-9
+    data = np.random.randint(0, 10, size=(T, D))
     
     # 假设电压是最后一个变量，并与第一个变量有较强相关性
-    data[:, -1] = 0.7 * data[:, 0] + 0.3 * np.random.randn(T)
+    # 通过复制第一个变量的部分值来创建相关性
+    data[:, -1] = np.where(np.random.rand(T) < 0.7, data[:, 0], np.random.randint(0, 10, T))
     
     print("=== 互信息计算示例 ===")
     print(f"数据形状: {data.shape}")
+    print("数据类型:", data.dtype)
+    print("数据范围:", data.min(), "到", data.max())
     
     # 计算互信息矩阵
     mi_vector, results = calculate_mi_matrix(data, voltage_index=-1)

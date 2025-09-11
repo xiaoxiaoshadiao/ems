@@ -12,14 +12,15 @@ def create_test_data():
     np.random.seed(42)
     T, D = 200, 6
     
-    # 创建6个变量的测试数据
-    data = np.random.randn(T, D)
+    # 创建6个变量的离散测试数据，取值范围为0-9
+    data = np.random.randint(0, 10, size=(T, D))
     
     # 让变量1与电压变量(最后一个)有强相关性
-    data[:, -1] = 0.8 * data[:, 1] + 0.2 * np.random.randn(T)
+    # 通过复制变量1的部分值来创建相关性
+    data[:, -1] = np.where(np.random.rand(T) < 0.8, data[:, 1], np.random.randint(0, 10, T))
     
     # 让变量3与电压变量有中等相关性
-    data[:, 3] = 0.5 * data[:, -1] + 0.5 * np.random.randn(T)
+    data[:, 3] = np.where(np.random.rand(T) < 0.5, data[:, -1], np.random.randint(0, 10, T))
     
     return data
 
