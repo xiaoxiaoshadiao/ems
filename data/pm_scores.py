@@ -5,6 +5,7 @@ P-M分数计算模块
 
 import numpy as np
 
+
 def calculate_pm_scores(data, voltage_index=None):
     """
     计算P-M分数
@@ -20,17 +21,18 @@ def calculate_pm_scores(data, voltage_index=None):
     # 这里只是一个占位符实现
     if data.ndim != 2:
         raise ValueError("输入数据必须是二维数组")
-    
+
     T, D = data.shape
-    
+
     # 如果没有指定电压索引，默认为最后一个变量
     if voltage_index is None:
         voltage_index = D - 1
-    
+
     # 占位符实现
     pm_scores = np.random.rand(D)
-    
+
     return pm_scores
+
 
 # 示例用法
 if __name__ == "__main__":
@@ -38,10 +40,10 @@ if __name__ == "__main__":
     np.random.seed(42)
     T, D = 100, 5
     data = np.random.randn(T, D)
-    
+
     # 计算P-M分数
     pm_scores = calculate_pm_scores(data)
-    
+
     print("=== P-M分数计算示例 ===")
     print(f"数据形状: {data.shape}")
     print(f"P-M分数: {pm_scores}")
