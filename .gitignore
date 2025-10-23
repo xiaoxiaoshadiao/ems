@@ -2,6 +2,10 @@
 /data/raw/
 /data/processed/
 
+#之前的小论文3
+/scripts3
+
+
 # 模型检查点和权重文件
 /outputs/checkpoints/*.pth
 /outputs/checkpoints/*.pt
@@ -48,3 +52,11 @@ Thumbs.db
 *.h5
 *.pkl
 *.pickle
+
+# 图片文件
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.svg
