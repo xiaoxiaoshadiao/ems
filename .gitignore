@@ -2,9 +2,6 @@
 /data/raw/
 /data/processed/
 
-#之前的小论文3
-/scripts3
-
 
 # 模型检查点和权重文件
 /outputs/checkpoints/*.pth

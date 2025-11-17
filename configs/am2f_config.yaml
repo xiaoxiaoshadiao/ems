@@ -1,0 +1,26 @@
+framework:
+  theta_high: 0.7
+  theta_low: 0.3
+  classifier:
+    type: "logistic_regression"
+    C: 1.0
+    penalty: "l2"
+
+feature_extraction:
+  window_size: 100
+  features:
+    - "variance"
+    - "trend_slope"
+    - "start_stop_events"
+    - "high_load_ratio"
+
+models:
+  famm:
+    weights_path: "weights/famm_best.pth"
+    input_dim: 8
+    hidden_dim: 64
+
+  ramm:
+    weights_path: "weights/ramm_best.pth"
+    input_dim: 8
+    hidden_dim: 64
