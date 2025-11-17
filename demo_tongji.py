@@ -1,4 +1,4 @@
-# D:\xiaoxiaoshadiao\ems\demo.py
+# D:\xiaoxiaoshadiao\ems\demo_tongji.py
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,9 +9,6 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
 import os
-
-# 设置matplotlib中文字体
-plt.rcParams['axes.unicode_minus'] = False
 
 
 # 数据集类
