@@ -8,7 +8,10 @@ from torch.utils.data import Dataset, DataLoader
 import os
 import time
 import matplotlib.pyplot as plt
-a_pa=None, sequence_length=50, train_ratio=0.7):
+
+
+class TongjiDataset(Dataset):
+    def __init__(self, data_path=None, sequence_length=50, train_ratio=0.7):
         if data_path is None:
             data_path = os.path.join(os.path.dirname(__file__), 'data', 'processed', 'tongji',
                                      'Durability_test_dataset',
@@ -23,8 +26,19 @@ a_pa=None, sequence_length=50, train_ratio=0.7):
 
         df.columns = ['V', 'P', 'I', 'T', 'Pao', 'Tco', 'Tcin', 'Tao']
 
+        # from statsmodels.nonparametric.smoothers_lowess import lowess
+        # frac = 25 / len(df)
+        # idx = np.arange(len(df))
+        # for c in df.columns:
+        #     df[c] = lowess(df[c].values, idx, frac=frac, it=0, return_sorted=False)
+
         train_size = int(len(df) * train_ratio)
-        trest_scaled = pd.DataFrame(self.scaler.transform(test_df), columns=df.columns)
+        train_df = df.iloc[:train_size]
+        test_df = df.iloc[train_size:]
+
+        self.scaler = StandardScaler()
+        train_scaled = pd.DataFrame(self.scaler.fit_transform(train_df), columns=df.columns)
+        test_scaled = pd.DataFrame(self.scaler.transform(test_df), columns=df.columns)
 
         self.train_X, self.train_y = self.make_seq(train_scaled, sequence_length)
         self.test_X, self.test_y = self.make_seq(test_scaled, sequence_length)
