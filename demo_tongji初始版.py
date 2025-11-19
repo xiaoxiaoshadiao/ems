@@ -1,4 +1,4 @@
-# D:\xiaoxiaoshadiao\ems\demo_tongji.py
+# D:\xiaoxiaoshadiao\ems\demo_tongji初始版.py
 import torch
 import torch.nn as nn
 import torch.optim as optim
