@@ -8,10 +8,12 @@ from torch.utils.data import Dataset, DataLoader
 import os
 import time
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error, r2_score
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 
 class TongjiDataset(Dataset):
-    def __init__(self, data_path=None, sequence_length=50, train_ratio=0.7):
+    def __init__(self, data_path=None, sequence_length=100, train_ratio=0.7):
         if data_path is None:
             data_path = os.path.join(os.path.dirname(__file__), 'data', 'processed', 'tongji',
                                      'Durability_test_dataset',
@@ -23,25 +25,34 @@ class TongjiDataset(Dataset):
             'voltage', 'power', 'current', 'temp_anode_endplate', 'pressure_anode_outlet',
             'temp_cathode_outlet', 'temp_cathode_inlet', 'temp_anode_outlet'
         ]]
-
         df.columns = ['V', 'P', 'I', 'T', 'Pao', 'Tco', 'Tcin', 'Tao']
 
-        from statsmodels.nonparametric.smoothers_lowess import lowess
-        frac = 25 / len(df)
-        idx = np.arange(len(df))
-        for c in df.columns:
-            df[c] = lowess(df[c].values, idx, frac=frac, it=0, return_sorted=False)
-
+        # 切分训练/测试
         train_size = int(len(df) * train_ratio)
-        train_df = df.iloc[:train_size]
-        test_df = df.iloc[train_size:]
+        train_df = df.iloc[:train_size].copy()
+        test_df = df.iloc[train_size:].copy()
 
+        # 分别平滑，避免数据泄露
+        train_df = self.smooth_dataframe(train_df)
+        test_df = self.smooth_dataframe(test_df)
+
+        # 标准化
         self.scaler = StandardScaler()
         train_scaled = pd.DataFrame(self.scaler.fit_transform(train_df), columns=df.columns)
         test_scaled = pd.DataFrame(self.scaler.transform(test_df), columns=df.columns)
 
         self.train_X, self.train_y = self.make_seq(train_scaled, sequence_length)
         self.test_X, self.test_y = self.make_seq(test_scaled, sequence_length)
+
+    def smooth_dataframe(self, df):
+        """对单个数据集做 LOWESS 平滑，动态 frac 保证窗口约 25 个点"""
+        idx = np.arange(len(df))
+        df_smoothed = df.copy()
+        # frac = 25 / len(df)，保证平滑窗口大约覆盖 25 个点
+        frac = min(1.0, 25 / len(df))  # 避免超过 1
+        for c in df.columns:
+            df_smoothed[c] = lowess(df[c].values, idx, frac=frac, it=0, return_sorted=False)
+        return df_smoothed
 
     def make_seq(self, df, seq_len):
         data = df.values
@@ -51,7 +62,6 @@ class TongjiDataset(Dataset):
             y.append(data[i + seq_len, 0])
         X = np.array(X, dtype=np.float32)
         y = np.array(y, dtype=np.float32)
-
         return torch.from_numpy(X), torch.from_numpy(y).unsqueeze(1)
 
     def inverse(self, x):
@@ -116,20 +126,28 @@ class Trainer:
 
         preds = np.array(preds).flatten()
         tars = np.array(tars).flatten()
-        return avg, self.inverse(preds), self.inverse(tars)
+
+        # 计算额外指标
+        mse = np.mean((preds - tars) ** 2)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(tars, preds)
+        r2 = r2_score(tars, preds)
+
+        return avg, self.inverse(preds), self.inverse(tars), mse, rmse, mae, r2
 
     def train(self, epochs):
         for e in range(1, epochs + 1):
             start = time.time()
             train_l = self.train_epoch()
-            test_l, _, _ = self.eval()
+            results = self.eval()
+            test_l = results[0]  # 只取平均loss
             print(f"Epoch {e}: Train {train_l:.6f}, Test {test_l:.6f}, Time {time.time() - start:.2f}s")
 
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    ds = TongjiDataset(sequence_length=50)
+    ds = TongjiDataset(sequence_length=100)
     train_loader = DataLoader(list(zip(ds.train_X, ds.train_y)), batch_size=32, shuffle=True)
     test_loader = DataLoader(list(zip(ds.test_X, ds.test_y)), batch_size=32, shuffle=False)
 
@@ -138,13 +156,11 @@ def main():
 
     trainer.train(20)
 
-    # 最终评估（补充RMSE指标）
-    final_loss, preds, tars = trainer.eval()
-    mse = np.mean((preds - tars) ** 2)
-    rmse = np.sqrt(mse)
-    print(f"\nFinal MSE: {mse:.6f}, RMSE: {rmse:.6f}")
+    # 最终评估（补充RMSE、MAE、R²指标）
+    final_loss, preds, tars, mse, rmse, mae, r2 = trainer.eval()
+    print(f"\nFinal MSE: {mse:.6f}, RMSE: {rmse:.6f}, MAE: {mae:.6f}, R²: {r2:.6f}")
 
-    # 1. 损失曲线（优化样式）
+    # 1. 损失曲线
     plt.figure(figsize=(10, 3))
     plt.plot(trainer.train_loss, label='Train Loss', linewidth=1.5)
     plt.plot(trainer.test_loss, label='Test Loss', linewidth=1.5)
@@ -155,7 +171,7 @@ def main():
     plt.grid(True, alpha=0.3)
     plt.show()
 
-    # 2. 真实值vs预测值（取前500个样本，优化视觉效果）
+    # 2. 真实值 vs 预测值
     sample_size = min(500, len(preds))
     plt.figure(figsize=(12, 4))
     plt.plot(range(sample_size), tars[:sample_size], label='True Value', linewidth=1.5)

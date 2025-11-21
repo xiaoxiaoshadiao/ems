@@ -12,9 +12,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, r2_score
 
 
-# ======================
 # 数据集
-# ======================
 class TongjiDataset(Dataset):
     def __init__(self, data_path=None, sequence_length=100, train_ratio=0.7):
         if data_path is None:
@@ -65,9 +63,7 @@ class TongjiDataset(Dataset):
         return self.scaler.inverse_transform(dummy)[:, 0]
 
 
-# ======================
 # 模型基础组件
-# ======================
 class moving_avg(nn.Module):
     def __init__(self, kernel_size, stride):
         super(moving_avg, self).__init__()
@@ -254,9 +250,7 @@ class TokenEmbedding(nn.Module):
         return x
 
 
-# ======================
 # FAMM 模型 简化输入仅 x
-# ======================
 class FAMM(nn.Module):
     def __init__(self, dec_in, seq_len, out_len=1, d_model=128, n_heads=4, d_layers=1, dropout=0.1, decomp_kernel=[25],
                  conv_kernel=[8], isometric_kernel=[6], device='cuda'):
@@ -306,9 +300,7 @@ class FAMM(nn.Module):
         return dec_out.squeeze(-1)  # [B, pred_len]，pred_len=1 => [B, 1]
 
 
-# ======================
 # 训练器
-# ======================
 class Trainer:
     def __init__(self, model, train_loader, test_loader, inverse, device):
         self.model = model.to(device)
@@ -372,9 +364,7 @@ class Trainer:
             print(f"Epoch {e}: Train {train_l:.6f}, Test {test_l:.6f}, Time {time.time() - start:.2f}s")
 
 
-# ======================
 # 主函数
-# ======================
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     ds = TongjiDataset(sequence_length=100)
