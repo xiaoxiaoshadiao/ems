@@ -367,7 +367,8 @@ class Trainer:
         for e in range(1, epochs + 1):
             start = time.time()
             train_l = self.train_epoch()
-            test_l, _, _ = self.eval()
+            results = self.eval()
+            test_l = results[0]  # 只取第一个 avg
             print(f"Epoch {e}: Train {train_l:.6f}, Test {test_l:.6f}, Time {time.time() - start:.2f}s")
 
 
