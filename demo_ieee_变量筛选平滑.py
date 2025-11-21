@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset, DataLoader
 import os
 import time
+import matplotlib.pyplot as plt  # 导入绘图库
 
 
 class IEEEDataset(Dataset):
@@ -23,7 +24,7 @@ class IEEEDataset(Dataset):
 
         # LOWESS平滑处理
         from statsmodels.nonparametric.smoothers_lowess import lowess
-        smooth_frac = 25 / len(df)
+        smooth_frac = 20 / len(df)
         idx = np.arange(len(df))
         for col in df.columns:
             df[col] = lowess(df[col].values, idx, frac=smooth_frac, it=0, return_sorted=False)
@@ -133,6 +134,29 @@ def main():
     mse = np.mean((preds - tars) ** 2)
     rmse = np.sqrt(mse)
     print(f"\nFinal Test Loss: {final_loss:.6f}, MSE: {mse:.6f}, RMSE: {rmse:.6f}")
+
+    # 绘制真实值与预测值对比图（取前500个点更清晰）
+    sample_size = min(500, len(preds))
+    plt.figure(figsize=(12, 4))
+    plt.plot(range(sample_size), tars[:sample_size], label='True Value', linewidth=1.5)
+    plt.plot(range(sample_size), preds[:sample_size], label='Predicted Value', linewidth=1.5, alpha=0.8)
+    plt.xlabel('Sample Index')
+    plt.ylabel('Voltage (V)')
+    plt.title('FC2 - True vs Predicted Values')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+    # 可选：绘制损失曲线
+    plt.figure(figsize=(10, 3))
+    plt.plot(trainer.train_loss, label='Train Loss')
+    plt.plot(trainer.test_loss, label='Test Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training & Test Loss')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
 
 
 if __name__ == "__main__":

@@ -26,11 +26,11 @@ class TongjiDataset(Dataset):
 
         df.columns = ['V', 'P', 'I', 'T', 'Pao', 'Tco', 'Tcin', 'Tao']
 
-        # from statsmodels.nonparametric.smoothers_lowess import lowess
-        # frac = 25 / len(df)
-        # idx = np.arange(len(df))
-        # for c in df.columns:
-        #     df[c] = lowess(df[c].values, idx, frac=frac, it=0, return_sorted=False)
+        from statsmodels.nonparametric.smoothers_lowess import lowess
+        frac = 25 / len(df)
+        idx = np.arange(len(df))
+        for c in df.columns:
+            df[c] = lowess(df[c].values, idx, frac=frac, it=0, return_sorted=False)
 
         train_size = int(len(df) * train_ratio)
         train_df = df.iloc[:train_size]
@@ -138,24 +138,33 @@ def main():
 
     trainer.train(20)
 
-    preds, tars = trainer.eval()[1:]
+    # 最终评估（补充RMSE指标）
+    final_loss, preds, tars = trainer.eval()
     mse = np.mean((preds - tars) ** 2)
-    print("Final MSE:", mse)
+    rmse = np.sqrt(mse)
+    print(f"\nFinal MSE: {mse:.6f}, RMSE: {rmse:.6f}")
 
-    plt.figure(figsize=(12, 4))
-    plt.plot(trainer.train_loss, label='Train')
-    plt.plot(trainer.test_loss, label='Test')
-    plt.legend();
-    plt.title("Loss Curve");
-    plt.grid(True)
+    # 1. 损失曲线（优化样式）
+    plt.figure(figsize=(10, 3))
+    plt.plot(trainer.train_loss, label='Train Loss', linewidth=1.5)
+    plt.plot(trainer.test_loss, label='Test Loss', linewidth=1.5)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training & Test Loss Curve')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
     plt.show()
 
+    # 2. 真实值vs预测值（取前500个样本，优化视觉效果）
+    sample_size = min(500, len(preds))
     plt.figure(figsize=(12, 4))
-    plt.plot(tars, label='True')
-    plt.plot(preds, label='Pred')
-    plt.legend();
-    plt.title("Prediction Result");
-    plt.grid(True)
+    plt.plot(range(sample_size), tars[:sample_size], label='True Value', linewidth=1.5)
+    plt.plot(range(sample_size), preds[:sample_size], label='Predicted Value', linewidth=1.5, alpha=0.8)
+    plt.xlabel('Sample Index')
+    plt.ylabel('Voltage (V)')
+    plt.title('Tongji - True vs Predicted Values')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
     plt.show()
 
 
