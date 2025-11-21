@@ -1,4 +1,3 @@
-# D:\xiaoxiaoshadiao\ems\demo_tongji.py
 import torch
 import torch.nn as nn
 import torch.optim as optim
