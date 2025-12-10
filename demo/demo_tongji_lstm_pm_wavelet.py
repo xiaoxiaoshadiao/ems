@@ -9,15 +9,29 @@ import os
 import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, r2_score
-from statsmodels.nonparametric.smoothers_lowess import lowess
+import pywt
+
+
+# 小波去噪函数
+def wavelet_denoise(signal, wavelet='db3', level=4, alpha=0.25):
+    coeffs = pywt.wavedec(signal, wavelet, level=level)
+    sigma = np.median(np.abs(coeffs[-1])) / 0.6745
+    threshold = alpha * sigma * np.sqrt(2 * np.log(len(signal)))
+    coeffs_thresh = [coeffs[0]]
+    for c in coeffs[1:]:
+        coeffs_thresh.append(pywt.threshold(c, threshold, mode='soft'))
+    denoised = pywt.waverec(coeffs_thresh, wavelet)
+    return denoised[:len(signal)]
 
 
 class TongjiDataset(Dataset):
     def __init__(self, data_path=None, sequence_length=100, train_ratio=0.7):
         if data_path is None:
-            data_path = os.path.join(os.path.dirname(__file__), 'data', 'processed', 'tongji',
+            data_path = os.path.join(os.path.dirname(__file__), 'data', 'processed',
+                                     'tongji',
                                      'Durability_test_dataset',
-                                     'classified_current_data', 'all_representative_rows.csv')
+                                     'classified_current_data',
+                                     'all_representative_rows.csv')
 
         df = pd.read_csv(data_path)
 
@@ -32,9 +46,9 @@ class TongjiDataset(Dataset):
         train_df = df.iloc[:train_size].copy()
         test_df = df.iloc[train_size:].copy()
 
-        # 分别平滑，避免数据泄露
-        train_df = self.smooth_dataframe(train_df)
-        test_df = self.smooth_dataframe(test_df)
+        # 分别去噪，避免数据泄露
+        train_df = self.denoise_dataframe(train_df)
+        test_df = self.denoise_dataframe(test_df)
 
         # 标准化
         self.scaler = StandardScaler()
@@ -44,15 +58,12 @@ class TongjiDataset(Dataset):
         self.train_X, self.train_y = self.make_seq(train_scaled, sequence_length)
         self.test_X, self.test_y = self.make_seq(test_scaled, sequence_length)
 
-    def smooth_dataframe(self, df):
-        """对单个数据集做 LOWESS 平滑，动态 frac 保证窗口约 25 个点"""
-        idx = np.arange(len(df))
-        df_smoothed = df.copy()
-        # frac = 25 / len(df)，保证平滑窗口大约覆盖 25 个点
-        frac = min(1.0, 25 / len(df))  # 避免超过 1
+    def denoise_dataframe(self, df):
+        """对单个数据集做小波去噪"""
+        df_denoised = df.copy()
         for c in df.columns:
-            df_smoothed[c] = lowess(df[c].values, idx, frac=frac, it=0, return_sorted=False)
-        return df_smoothed
+            df_denoised[c] = wavelet_denoise(df[c].values, wavelet='db3', level=4, alpha=0.25)
+        return df_denoised
 
     def make_seq(self, df, seq_len):
         data = df.values
@@ -140,7 +151,7 @@ class Trainer:
             start = time.time()
             train_l = self.train_epoch()
             results = self.eval()
-            test_l = results[0]  # 只取平均loss
+            test_l = results[0]
             print(f"Epoch {e}: Train {train_l:.6f}, Test {test_l:.6f}, Time {time.time() - start:.2f}s")
 
 
@@ -156,11 +167,10 @@ def main():
 
     trainer.train(20)
 
-    # 最终评估（补充RMSE、MAE、R²指标）
     final_loss, preds, tars, mse, rmse, mae, r2 = trainer.eval()
     print(f"\nFinal MSE: {mse:.6f}, RMSE: {rmse:.6f}, MAE: {mae:.6f}, R²: {r2:.6f}")
 
-    # 1. 损失曲线
+    # 损失曲线
     plt.figure(figsize=(10, 3))
     plt.plot(trainer.train_loss, label='Train Loss', linewidth=1.5)
     plt.plot(trainer.test_loss, label='Test Loss', linewidth=1.5)
@@ -171,14 +181,14 @@ def main():
     plt.grid(True, alpha=0.3)
     plt.show()
 
-    # 2. 真实值 vs 预测值
+    # 真实 vs 预测
     sample_size = min(500, len(preds))
     plt.figure(figsize=(12, 4))
-    plt.plot(range(sample_size), tars[:sample_size], label='True Value', linewidth=1.5)
-    plt.plot(range(sample_size), preds[:sample_size], label='Predicted Value', linewidth=1.5, alpha=0.8)
+    plt.plot(range(sample_size), tars[:sample_size], label='True Voltage', linewidth=1.5)
+    plt.plot(range(sample_size), preds[:sample_size], label='Predicted Voltage', linewidth=1.5, alpha=0.8)
     plt.xlabel('Sample Index')
     plt.ylabel('Voltage (V)')
-    plt.title('Tongji - True vs Predicted Values')
+    plt.title('Tongji - True vs Predicted Voltage')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.show()
